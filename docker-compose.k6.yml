@@ -1,0 +1,15 @@
+version: '3'
+services:
+  k6:
+    image: grafana/k6:latest
+    ports:
+      - "6565:6565"
+    volumes:
+      - ./k6/api:/scripts
+    working_dir: /scripts
+    entrypoint: [ "k6", "run", "--out", "influxdb=http://localhost:8086/hhplus" ]
+    network_mode: host
+#docker compose -f docker-compose.k6.yml run --rm k6
+#docker compose -f docker-compose.k6.yml run --rm k6 -- getAvaliableSeat.js
+#경로가 다른 경우 volume 수정 ==> /k6/api
+

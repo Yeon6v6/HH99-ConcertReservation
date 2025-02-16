@@ -2,6 +2,7 @@ version: '3'
 services:
   mysql:
     image: mysql:8.0
+    container_name: concertreservesystem-mysql-1
     ports:
       - "3307:3306"
     environment:
@@ -9,8 +10,36 @@ services:
       - MYSQL_USER=application
       - MYSQL_PASSWORD=application
       - MYSQL_DATABASE=hhplus
+      - MYSQL_ROOT_HOST=%
+#      - MYSQL_TCP_PORT=3306  # MySQL이 3306 포트를 강제 사용하도록 설정
+#    command: --port=3306  # MySQL 실행 시 3306 포트를 강제 사용
     volumes:
-      - ./data/mysql/:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  mysql-init:
+    image: mysql:8.0
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./data/initdb:/docker-entrypoint-initdb.d
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for MySQL to be ready...";
+        sleep 10;
+        echo "Running initial schema setup...";
+        mysql -h mysql -P 3306 -uapplication -papplication -Dhhplus --connect-timeout=30 < /docker-entrypoint-initdb.d/0_schema.sql;
+        echo "Schema setup complete.";
+        echo "Running initial bulk data scripts...";
+        mysql -h mysql -P 3306 -uapplication -papplication -Dhhplus < /docker-entrypoint-initdb.d/1_bulk_data.sql;
+        echo "MySQL initialization complete.";
+    restart: "no"
 
   influxdb:
     image: influxdb:1.8
@@ -41,7 +70,7 @@ services:
 
   k6:
     image: grafana/k6
-    container_name: k6-load-test
+    container_name: k6-
     volumes:
       - ./k6:/scripts
     working_dir: /scripts
@@ -50,6 +79,37 @@ services:
       - influxdb
     networks:
       - default
+
+#  prometheus:
+#    image: prom/prometheus
+#    container_name: prometheus
+#    ports:
+#      - "9090:9090"
+#    restart: always
+#    volumes:
+#      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+#
+#  mysql-exporter:
+#    container_name: mysql-exporter
+#    image: prom/mysqld-exporter
+#    command:
+#      - "--mysqld.username=application:application"
+#      - "--mysqld.address=mysql:3307"
+#    ports:
+#      - "9104:9104"
+#    depends_on:
+#      - mysql
+
+#  redis:
+#    image: redis:latest
+#    container_name: redis
+#    ports:
+#      - "6379:6379"
+#    volumes:
+#      - ./data/redis:/data
+
+volumes:
+  mysql_data:
 
 networks:
   default:

@@ -1,0 +1,37 @@
+CREATE TABLE IF NOT EXISTS user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    balance BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS concert (
+   id BIGINT AUTO_INCREMENT PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS concert_schedule (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    concert_id BIGINT NOT NULL,
+    schedule_date DATE NOT NULL,
+    is_sold_out BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS seat (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    seat_number INT NOT NULL,
+    concert_id BIGINT NOT NULL,
+    schedule_date DATE NOT NULL,
+    status ENUM('AVAILABLE', 'RESERVED', 'PAID') NOT NULL,
+    price BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reservation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    seat_id BIGINT NOT NULL,
+    seat_number INT NOT NULL,
+    concert_id BIGINT NOT NULL,
+    schedule_date DATE NOT NULL,
+    status ENUM('PENDING', 'PAID', 'CANCELLED') NOT NULL,
+    expired_at DATETIME NOT NULL,
+    price BIGINT NOT NULL,
+    paid_at DATETIME NULL
+);

@@ -6,8 +6,9 @@ import kr.hhplus.be.server.api.concert.application.dto.response.ConcertSeatResul
 import kr.hhplus.be.server.api.concert.exception.SeatErrorCode;
 import kr.hhplus.be.server.api.reservation.application.dto.command.ReservationCommand;
 import kr.hhplus.be.server.api.reservation.application.dto.result.PaymentResult;
+import kr.hhplus.be.server.api.reservation.application.event.ConcertSeatPaidEvent;
+import kr.hhplus.be.server.api.reservation.application.event.ConcertSeatReservedEvent;
 import kr.hhplus.be.server.api.token.application.service.TokenService;
-import kr.hhplus.be.server.api.token.exception.TokenErrorCode;
 import kr.hhplus.be.server.api.user.application.service.UserService;
 import kr.hhplus.be.server.api.concert.application.service.ConcertService;
 import kr.hhplus.be.server.api.reservation.application.dto.command.PaymentCommand;
@@ -15,6 +16,7 @@ import kr.hhplus.be.server.api.reservation.application.dto.result.ReservationRes
 import kr.hhplus.be.server.api.reservation.application.service.ReservationService;
 import kr.hhplus.be.server.api.reservation.domain.entity.Reservation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ public class ReservationFacade {
     private final ConcertService concertService;
     private final UserService userService;
     private final TokenService tokenService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 좌석 예약
@@ -42,7 +45,16 @@ public class ReservationFacade {
         }
 
         // 2. 예약 정보 생성
-        return reservationService.createReservation(reservationCmd);
+        ReservationResult reservationResult = reservationService.createReservation(reservationCmd);
+
+        // 예약 생성 이벤트 발행 (AFTER_COMMIT)
+        eventPublisher.publishEvent(new ConcertSeatReservedEvent(
+                reservationResult.reservationId(),
+                reservationCmd.seatNumber(),
+                ConcertSeatReservedEvent.Status.SEAT_RESERVED
+        ));
+
+        return reservationResult;
     }
 
     /**
@@ -84,7 +96,17 @@ public class ReservationFacade {
             tokenService.expireToken(tokenId);
         }
 
-        // 8. PaymentResult 생성 및 반환
+        // 8. 좌석 결제 완료 이벤트 발행
+        eventPublisher.publishEvent(new ConcertSeatPaidEvent(
+                reservation.getId(),
+                reservation.getConcertId(),
+                reservation.getSeatNumber(),
+                reservation.getUserId(),
+                seatPrice,
+                paidAmount
+        ));
+
+        // 9. PaymentResult 생성 및 반환
         return new PaymentResult(
                 reservation.getId(),
                 seatResult.status(),
