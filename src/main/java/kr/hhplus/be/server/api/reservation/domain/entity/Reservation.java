@@ -63,8 +63,18 @@ public class Reservation {
      */
     public void pay(Long amount) {
         this.status = ReservationStatus.PAID;
-        this.price = amount;
+        this.price = amount; //예약할 때 지불한 금액을 의미
         this.paidAt = LocalDateTime.now();
+    }
+
+    /**
+     * 예약 취소
+     */
+    public void cancel() {
+        this.status = ReservationStatus.PENDING;
+        this.expiredAt = null;
+        this.price = null;
+        this.paidAt = null;
     }
 
     public void validate() {

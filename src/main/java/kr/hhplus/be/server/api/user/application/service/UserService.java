@@ -1,13 +1,16 @@
 package kr.hhplus.be.server.api.user.application.service;
 
+import kr.hhplus.be.server.api.common.exception.CustomException;
 import kr.hhplus.be.server.api.common.lock.util.RedisPublisher;
 import kr.hhplus.be.server.api.user.application.dto.response.UserBalanceResult;
 import kr.hhplus.be.server.api.user.domain.entity.User;
 import kr.hhplus.be.server.api.user.domain.repository.UserRepository;
+import kr.hhplus.be.server.api.user.exception.UserErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -47,6 +50,7 @@ public class UserService {
      * - 잔액 확인 후 부족 시 충전
      * - 결제 가능 금액 반환
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Long processPayment(Long userId, Long totalAmount) {
         log.info("[UserService] 결제 처리 시작 >> User ID: {}, Total Amount: {}", userId, totalAmount);
         try {
@@ -135,5 +139,14 @@ public class UserService {
             log.error("[UserService] 잔액 차감 실패 >> User ID: {}, Amount: {}", userId, amount, e);
             throw e;
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void refundPayment(Long userId, Long paymentAmount) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+        // 환불 진행(지불한 금액만큼 잔액 충전)
+        user.chargeBalance(paymentAmount);
+        userRepository.save(user);
     }
 }

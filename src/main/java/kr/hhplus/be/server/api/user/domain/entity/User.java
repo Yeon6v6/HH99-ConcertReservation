@@ -44,4 +44,5 @@ public class User {
         }
         this.balance -= amount;
     }
+
 }

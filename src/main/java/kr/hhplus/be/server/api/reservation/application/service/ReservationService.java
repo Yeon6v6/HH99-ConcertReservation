@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,6 +30,7 @@ public class ReservationService {
     /**
      * 예약 ID로 예약 정보 조회
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Reservation findById(Long reservationId) {
         return reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new CustomException(ReservationErrorCode.RESERVATION_NOT_FOUND));
@@ -36,6 +39,7 @@ public class ReservationService {
     /**
      * 예약 생성(좌석 예약)
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ReservationResult createReservation(ReservationCommand command) {
         log.info("[ReservationService] 예약 생성 시작 >> User ID: {}, Seat ID: {}", command.userId(), command.seatId());
 
@@ -53,6 +57,7 @@ public class ReservationService {
             Reservation reservation = reservationFactory.createReservation(command);
             Reservation savedReservation = reservationRepository.save(reservation);
             log.info("[ReservationService] 예약 생성 완료 >> Reservation ID: {}", reservation.getId());
+
             return reservationResultFactory.createResult(savedReservation);
         } catch (CustomException e) {
             log.error("[ReservationService] 예약 생성 실패 >> User ID: {}, Seat ID: {}", command.userId(), command.seatId(), e);
@@ -63,6 +68,7 @@ public class ReservationService {
     /**
      * 예약 정보 업데이트
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateReservation(Reservation reservation) {
         reservationRepository.save(reservation);
     }
@@ -72,5 +78,17 @@ public class ReservationService {
      */
     public List<Reservation> findAllReservationsBySeatId(Long seatId) {
         return reservationRepository.findBySeatId(seatId);
+    }
+
+    /**
+     * 결제 업데이트 취소에 따른 예약 정보 업데이트
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void cancelResrvation(Long reservationId) {
+        Reservation reservation = findById(reservationId);
+        if(reservation != null) {
+            reservation.cancel();
+            updateReservation(reservation);
+        }
     }
 }

@@ -6,15 +6,17 @@ import kr.hhplus.be.server.api.concert.application.dto.response.ConcertSeatResul
 import kr.hhplus.be.server.api.concert.domain.entity.ConcertSchedule;
 import kr.hhplus.be.server.api.concert.domain.entity.Seat;
 import kr.hhplus.be.server.api.concert.domain.repository.ConcertScheduleRepository;
+import kr.hhplus.be.server.api.concert.domain.repository.SeatRepository;
 import kr.hhplus.be.server.api.concert.exception.ConcertErrorCode;
 import kr.hhplus.be.server.api.concert.exception.SeatErrorCode;
-import kr.hhplus.be.server.api.concert.domain.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -65,6 +67,7 @@ public class ConcertService {
      * 좌석 예약
      */
     @CacheEvict(value = "availableSeats", key = "'concert:' + #seat.getConcertId() + ':schedule:' + #seat.getScheduleDate()") // 캐시 무효화
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ConcertSeatResult reserveSeat(Long seatId) {
         try {
             Seat seat = seatRepository.findById(seatId)
@@ -87,6 +90,7 @@ public class ConcertService {
      * 결제로 상태 업데이트 (Facade에서 트랜잭션 관리)
      */
     @CacheEvict(value = "availableSeats", key = "'concert:' + #seat.getConcertId() + ':schedule:' + #seat.getScheduleDate()") //캐시 무효화
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ConcertSeatResult payForSeat(Long seatId) {
         try{
             Seat seat = seatRepository.findById(seatId)
@@ -127,5 +131,13 @@ public class ConcertService {
             log.error("[ConcertService] 콘서트 매진 상태 업데이트 실패 >> Concert ID: {}, Sold Out: {}", concertId, schedule.isSoldOut(), e);
             throw e;
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void cancelSeatPayment(Long seatId) {
+        Seat seat = seatRepository.findById(seatId)
+                .orElseThrow(() -> new CustomException(SeatErrorCode.SEAT_NOT_FOUND));
+        seat.cancelReservation();
+        seatRepository.save(seat);
     }
 }
